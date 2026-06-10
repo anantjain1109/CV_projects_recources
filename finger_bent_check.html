@@ -1,0 +1,192 @@
+%%writefile index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Tracking Y-Axis Simulation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 400px;
+        }
+        /* The Visual Diagram Area */
+        .diagram-box {
+            position: relative;
+            width: 150px;
+            height: 300px;
+            margin: 20px auto;
+            border-left: 4px solid #333; /* The Y-Axis */
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        .axis-label-top { position: absolute; top: 0; left: -50px; font-weight: bold; }
+        .axis-label-bottom { position: absolute; bottom: 0; left: -50px; font-weight: bold; }
+        
+        /* The Dots */
+        .point {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            left: 50%;
+            z-index: 2;
+        }
+        .knuckle {
+            background-color: #ff4757;
+            top: 60%; /* Fixed at Y = 0.6 */
+        }
+        .fingertip {
+            background-color: #1e90ff;
+            top: 20%; /* Starts at Y = 0.2 */
+        }
+        
+        /* The Connecting Line */
+        .bone {
+            position: absolute;
+            width: 4px;
+            background-color: #747d8c;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        /* Labels next to dots */
+        .point-label {
+            position: absolute;
+            left: 30px;
+            width: 100px;
+            text-align: left;
+            font-size: 14px;
+            color: #333;
+            transform: translateY(-50%);
+            top: 50%;
+        }
+
+        /* Controls */
+        .controls { margin-top: 20px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        /* Outputs */
+        .status-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .extended { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .bent { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .code-snippet {
+            background: #2f3542;
+            color: #f1f2f6;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Screen Y-Axis Logic</h2>
+    <p>Drag the slider to move the fingertip up and down.</p>
+
+    <div class="controls">
+        <label for="tipSlider"><strong>Fingertip Y Value: <span id="tipValueDisplay">0.20</span></strong></label>
+        <input type="range" id="tipSlider" min="0.0" max="1.0" step="0.01" value="0.20">
+    </div>
+
+    <div class="diagram-box">
+        <div class="axis-label-top">Y = 0.0</div>
+        <div class="axis-label-bottom">Y = 1.0</div>
+        
+        <div class="point fingertip" id="fingertip">
+            <div class="point-label">Fingertip</div>
+        </div>
+        
+        <div class="bone" id="bone"></div>
+        
+        <div class="point knuckle">
+            <div class="point-label">Knuckle (0.60)</div>
+        </div>
+    </div>
+
+    <div class="code-snippet" id="codeLogic">
+        0.20 >= 0.60  →  False
+    </div>
+
+    <div class="status-box extended" id="statusBox">
+        Finger is EXTENDED
+    </div>
+</div>
+
+<script>
+    // Grab the elements from the HTML
+    const slider = document.getElementById('tipSlider');
+    const tipValueDisplay = document.getElementById('tipValueDisplay');
+    const fingertip = document.getElementById('fingertip');
+    const bone = document.getElementById('bone');
+    const codeLogic = document.getElementById('codeLogic');
+    const statusBox = document.getElementById('statusBox');
+
+    const KNUCKLE_Y = 0.60;
+
+    // Function to update the math and visuals whenever the slider moves
+    function updateSimulation() {
+        const tipY = parseFloat(slider.value);
+        
+        // 1. Update text display
+        tipValueDisplay.innerText = tipY.toFixed(2);
+        
+        // 2. Update visual position (multiply by 100 to get percentage of container height)
+        fingertip.style.top = (tipY * 100) + '%';
+        
+        // 3. Update the connecting bone line
+        // The line needs to stretch between the tip and the knuckle
+        const topPoint = Math.min(tipY, KNUCKLE_Y);
+        const bottomPoint = Math.max(tipY, KNUCKLE_Y);
+        const heightDiff = bottomPoint - topPoint;
+        
+        bone.style.top = (topPoint * 100) + '%';
+        bone.style.height = (heightDiff * 100) + '%';
+
+        // 4. Run the actual Python logic: lm[tip_id].y >= lm[pip_id].y
+        const isBent = tipY >= KNUCKLE_Y;
+        
+        codeLogic.innerText = `${tipY.toFixed(2)} >= ${KNUCKLE_Y.toFixed(2)}  →  ${isBent ? "True" : "False"}`;
+
+        if (isBent) {
+            statusBox.innerText = "Finger is BENT";
+            statusBox.className = "status-box bent";
+        } else {
+            statusBox.innerText = "Finger is EXTENDED";
+            statusBox.className = "status-box extended";
+        }
+    }
+
+    // Listen for the user dragging the slider
+    slider.addEventListener('input', updateSimulation);
+
+    // Run once on load to set initial state
+    updateSimulation();
+</script>
+
+</body>
+</html>
